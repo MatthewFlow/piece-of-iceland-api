@@ -1,0 +1,44 @@
+# 🔧 Build artifacts
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+# 📦 Dependency folders
+node_modules/
+packages/
+
+# 🌐 ASP.NET hosting files
+*.user
+*.vs/
+.vscode/
+
+# 🛠️ VS Code + Rider
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.idea/
+
+# 🧪 Logs & Debug
+*.log
+*.tlog
+*.cache
+*.dbmdl
+
+# 🔐 Configuration / Secrets (jeśli kiedyś dodasz .env)
+.env
+*.secret.json
+
+# 📑 Database and local runtime
+*.db
+*.sqlite
+*.bak
+
+# 🔧 Launch config
+launchSettings.json # jeśli chcesz, żeby każdy miał własne uruchamianie
+
+# 🧼 System/macOS/Windows
+.DS_Store
+Thumbs.db

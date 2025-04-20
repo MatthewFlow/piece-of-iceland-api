@@ -1,0 +1,59 @@
+using Microsoft.AspNetCore.Mvc;
+using piece_of_iceland_api.Models;
+using piece_of_iceland_api.Services;
+
+namespace piece_of_iceland_api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class UsersController : ControllerBase
+{
+    private readonly UserService _userService;
+
+    public UsersController(UserService userService)
+    {
+        _userService = userService;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<List<User>>> Get() =>
+        await _userService.GetAsync();
+
+    [HttpGet("{id:length(24)}")]
+    public async Task<ActionResult<User>> Get(string id)
+    {
+        var user = await _userService.GetAsync(id);
+        return user is null ? NotFound() : user;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Post(User newUser)
+    {
+        newUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newUser.PasswordHash);
+
+        await _userService.CreateAsync(newUser);
+        return CreatedAtAction(nameof(Get), new { id = newUser.Id }, newUser);
+    }
+
+    [HttpPut("{id:length(24)}")]
+    public async Task<IActionResult> Put(string id, User updatedUser)
+    {
+        var user = await _userService.GetAsync(id);
+        if (user is null) return NotFound();
+
+        updatedUser.Id = user.Id;
+        await _userService.UpdateAsync(id, updatedUser);
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id:length(24)}")]
+    public async Task<IActionResult> Delete(string id)
+    {
+        var user = await _userService.GetAsync(id);
+        if (user is null) return NotFound();
+
+        await _userService.DeleteAsync(id);
+        return NoContent();
+    }
+}
