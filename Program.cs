@@ -21,6 +21,7 @@ var mongoDbName = builder.Configuration["MONGODB:DatabaseName"] ?? "PieceOfIcela
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// 🧩 Dependency Injection
 builder.Services.AddSingleton<ParcelService>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<TransactionService>();
@@ -42,6 +43,18 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtIssuer,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
     };
+});
+
+// 🌐 CORS config
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
 });
 
 // 📚 Swagger setup with JWT authorization support
@@ -82,13 +95,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// ✅ Simple healthcheck endpoint
-app.MapGet("/health", () => Results.Ok("Healthy ✅"));
-
-// ✅ Redirect root URL to Swagger UI
-app.MapGet("/", () => Results.Redirect("/swagger"));
-
-// 🧪 Enable Swagger only in Development
+// 🧪 Swagger UI
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -102,10 +109,20 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// 🌐 Apply CORS (MUST be before Authentication and Authorization!)
+app.UseCors("AllowFrontend");
+
 // 🔐 Auth + Controllers
 // app.UseHttpsRedirection(); // Disabled for now (no HTTPS in dev)
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
+
+// ✅ Simple healthcheck endpoint
+app.MapGet("/health", () => Results.Ok("Healthy ✅"));
+
+// ✅ Redirect root URL to Swagger UI
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();
