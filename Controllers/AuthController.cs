@@ -37,32 +37,32 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-public async Task<IActionResult> Register(RegisterDto register)
-{
-    var existingUser = (await _userService.GetAsync())
-        .FirstOrDefault(u => u.Email == register.Email);
-
-    if (existingUser is not null)
+    public async Task<IActionResult> Register(RegisterDto register)
     {
-        return Conflict("User with this email already exists.");
+        var existingUser = (await _userService.GetAsync())
+            .FirstOrDefault(u => u.Email == register.Email);
+
+        if (existingUser is not null)
+        {
+            return Conflict("User with this email already exists.");
+        }
+
+        var user = new User
+        {
+            Email = register.Email,
+            Username = register.Username,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(register.Password)
+        };
+
+        await _userService.CreateAsync(user);
+
+        return CreatedAtAction(nameof(Login), new { email = user.Email }, new
+        {
+            user.Id,
+            user.Email,
+            user.Username
+        });
     }
-
-    var user = new User
-    {
-        Email = register.Email,
-        Username = register.Username,
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword(register.Password)
-    };
-
-    await _userService.CreateAsync(user);
-
-    return CreatedAtAction(nameof(Login), new { email = user.Email }, new
-    {
-        user.Id,
-        user.Email,
-        user.Username
-    });
-}
 
     [Authorize]
     [HttpGet("me")]
@@ -76,6 +76,22 @@ public async Task<IActionResult> Register(RegisterDto register)
             userId,
             email
         });
+    }
+
+    [Authorize]
+    [HttpPost("refresh")]
+    public IActionResult Refresh()
+    {
+        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var email = User.FindFirstValue(JwtRegisteredClaimNames.Email);
+
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(email))
+        {
+            return Unauthorized(new { message = "Invalid token" });
+        }
+
+        var token = GenerateJwtToken(userId, email);
+        return Ok(new { token });
     }
 
     private string GenerateJwtToken(string userId, string email)
