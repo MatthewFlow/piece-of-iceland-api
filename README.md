@@ -1,7 +1,7 @@
 # 🧩 Piece of Iceland – API
 
-**Secure backend API for managing virtual parcels, users, and transactions in the Piece of Iceland project.**
-Built with .NET 8 (LTS), MongoDB, Swagger, and JWT authentication.
+**Secure backend API for managing virtual parcels, users, and transactions in the Piece of Iceland project.**  
+Built with .NET 8 (LTS), MongoDB, Swagger UI, and JWT authentication.
 
 ---
 
@@ -11,8 +11,9 @@ Built with .NET 8 (LTS), MongoDB, Swagger, and JWT authentication.
 - ASP.NET Core Web API
 - MongoDB (via MongoDB.Driver)
 - JWT Authentication (Bearer tokens)
-- Swagger (OpenAPI 3) + UI
-- RESTful structure (Users, Parcels, Transactions)
+- Swagger (OpenAPI 3) + Swagger UI
+- CORS for frontend integration
+- DotNetEnv for configuration
 
 ---
 
@@ -20,38 +21,53 @@ Built with .NET 8 (LTS), MongoDB, Swagger, and JWT authentication.
 
 ### `POST /api/auth/register`
 
-Create new user with hashed password.
+Create a new user with email, username and password (hashed before saving).
 
 ### `POST /api/auth/login`
 
-Returns JWT token for valid credentials.
+Validates credentials and returns a short-lived JWT token.
+
+### `POST /api/auth/refresh`
+
+Refreshes the JWT token for an active session (requires valid token in Authorization header).
 
 ### `GET /api/auth/me`
 
-Returns current user info (protected, needs Bearer token).
+Returns authenticated user's basic information.
 
 ---
 
 ## 🔒 Securing Endpoints
 
-Use `[Authorize]` on any controller or action to restrict it to authenticated users with valid JWT.
+Use `[Authorize]` on any controller or action to restrict it to authenticated users.  
+JWT token must be sent in the `Authorization: Bearer <token>` header.
 
 ---
 
 ## 🔧 Environment Configuration (`env/`)
 
-The project uses [DotNetEnv](https://github.com/tonerdo/dotnet-env) to load environment variables from `.env` files.
+Environment variables are loaded from .env using DotNetEnv.
+📁 Example: env/.env
+
+```json
+JWT__Key=your-secret-jwt-key-at-least-32-characters
+JWT__Issuer=PieceOfIceland
+MONGODB__ConnectionString=mongodb://localhost:27017
+MONGODB__DatabaseName=PieceOfIcelandDb
+```
 
 ---
 
 ## 📦 Installation
+
+Build and run::
 
 ```bash
 dotnet build
 dotnet run
 ```
 
-and open:
+Then open Swagger::
 
 ```bash
 http://localhost:5135/swagger
