@@ -1,12 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using piece_of_iceland_api.DTOs;
 using piece_of_iceland_api.Services;
+using piece_of_iceland_api.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Authorization;
-using piece_of_iceland_api.Models;
 
 namespace piece_of_iceland_api.Controllers;
 
@@ -68,8 +68,8 @@ public class AuthController : ControllerBase
     [HttpGet("me")]
     public IActionResult Me()
     {
-        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        var email = User.FindFirstValue(JwtRegisteredClaimNames.Email);
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var email = User.FindFirst(ClaimTypes.Email)?.Value;
 
         return Ok(new
         {
@@ -82,32 +82,34 @@ public class AuthController : ControllerBase
     [HttpPost("refresh")]
     public IActionResult Refresh()
     {
-        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        var email = User.FindFirstValue(JwtRegisteredClaimNames.Email);
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var email = User.FindFirst(ClaimTypes.Email)?.Value;
 
-        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(email))
+        if (userId is null || email is null)
         {
-            return Unauthorized(new { message = "Invalid token" });
+            return Unauthorized();
         }
 
-        var token = GenerateJwtToken(userId, email);
-        return Ok(new { token });
+        var newToken = GenerateJwtToken(userId, email);
+        return Ok(new { token = newToken });
     }
 
     private string GenerateJwtToken(string userId, string email)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["JWT:Key"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        Console.WriteLine($"🔑 Creating JWT for {email} ({userId})");
 
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, userId),
-            new Claim(JwtRegisteredClaimNames.Email, email),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new Claim("sub", userId),
+            new Claim("email", email),
+            new Claim("jti", Guid.NewGuid().ToString())
         };
 
         var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
+            issuer: _config["JWT:Issuer"],
             audience: null,
             claims: claims,
             expires: DateTime.UtcNow.AddHours(2),

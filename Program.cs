@@ -4,6 +4,7 @@ using Microsoft.OpenApi.Models;
 using piece_of_iceland_api.Services;
 using System.Text;
 using DotNetEnv;
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,41 +12,35 @@ var builder = WebApplication.CreateBuilder(args);
 DotNetEnv.Env.Load("env/.env");
 builder.Configuration.AddEnvironmentVariables();
 
-// ✅ Load secrets and connection strings from environment variables
+// ✅ Load JWT configuration
 var jwtKey = builder.Configuration["JWT:Key"] ?? throw new Exception("JWT key missing");
 var jwtIssuer = builder.Configuration["JWT:Issuer"] ?? throw new Exception("JWT issuer missing");
-var mongoConn = builder.Configuration["MONGODB:ConnectionString"] ?? throw new Exception("MongoDB connection string missing");
-var mongoDbName = builder.Configuration["MONGODB:DatabaseName"] ?? "PieceOfIcelandDb";
 
-// 🚀 Core services and MongoDB setup
+// 🔧 Register services
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-
-// 🧩 Dependency Injection
 builder.Services.AddSingleton<ParcelService>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<TransactionService>();
+builder.Services.AddEndpointsApiExplorer();
 
-// 🔐 JWT authentication config
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+// 🔐 Add JWT authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-    };
-});
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            NameClaimType = "sub",
+            RoleClaimType = "role"
+        };
+    });
 
-// 🌐 CORS config
+// 🌍 Enable CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -57,24 +52,23 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 📚 Swagger setup with JWT authorization support
+// 📚 Swagger
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Piece of Iceland API",
         Version = "v1",
-        Description = "API for managing parcels, users, and transactions",
+        Description = "API for managing parcels, users, and tokens"
     });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'",
+        Description = "JWT using Bearer scheme. Format: Bearer {token}",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT"
+        Scheme = "bearer"
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -84,8 +78,8 @@ builder.Services.AddSwaggerGen(options =>
             {
                 Reference = new OpenApiReference
                 {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
+                    Id = "Bearer",
+                    Type = ReferenceType.SecurityScheme
                 }
             },
             new string[] {}
@@ -95,34 +89,21 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// 🧪 Swagger UI
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Piece of Iceland API v1");
-        c.RoutePrefix = "swagger";
-        c.ConfigObject.AdditionalItems["validatorUrl"] = null;
-        c.ConfigObject.AdditionalItems["persistAuthorization"] = false;
-        c.ConfigObject.AdditionalItems["url"] = "/swagger/v1/swagger.json";
-    });
+    app.UseSwaggerUI();
 }
 
-// 🌐 Apply CORS (MUST be before Authentication and Authorization!)
 app.UseCors("AllowFrontend");
 
-// 🔐 Auth + Controllers
-// app.UseHttpsRedirection(); // Disabled for now (no HTTPS in dev)
+// 🔐 Auth
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-// ✅ Simple healthcheck endpoint
-app.MapGet("/health", () => Results.Ok("Healthy ✅"));
-
-// ✅ Redirect root URL to Swagger UI
 app.MapGet("/", () => Results.Redirect("/swagger"));
+app.MapGet("/health", () => Results.Ok("Healthy ✅"));
 
 app.Run();
